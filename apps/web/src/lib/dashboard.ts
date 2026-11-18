@@ -223,3 +223,43 @@ export async function fetchDashboardData(params: {
     snapshotIndicators: [GDP_PER_CAPITA, LIFE_EXPECTANCY, POPULATION],
   });
 }
+
+// ---------------------------------------------------------------- saved views
+
+/** A Saved View as returned by the API. */
+export type SavedView = DashboardParams & {
+  name: string;
+  createdAt: string;
+};
+
+const SAVED_VIEWS_QUERY = /* GraphQL */ `
+  query SavedViews {
+    savedViews {
+      name
+      indicator
+      year
+      countries
+      order
+      region
+      createdAt
+    }
+  }
+`;
+
+const SAVE_VIEW_MUTATION = /* GraphQL */ `
+  mutation SaveView($input: SaveViewInput!) {
+    saveView(input: $input) {
+      name
+    }
+  }
+`;
+
+/** All Saved Views, newest first. */
+export async function fetchSavedViews(): Promise<SavedView[]> {
+  return (await gqlFetch<{ savedViews: SavedView[] }>(SAVED_VIEWS_QUERY)).savedViews;
+}
+
+/** Save a Dashboard Configuration under a View Name. Rejects with the API's readable message. */
+export async function saveView(name: string, config: DashboardParams): Promise<void> {
+  await gqlFetch(SAVE_VIEW_MUTATION, { input: { name, ...config } });
+}

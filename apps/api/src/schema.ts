@@ -1,6 +1,7 @@
 import { createSchema } from "graphql-yoga";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./db.js";
+import { listSavedViews, saveView, type SaveViewInput } from "./savedViews.js";
 
 export const typeDefs = /* GraphQL */ `
   type Greeting {
@@ -107,6 +108,42 @@ export const typeDefs = /* GraphQL */ `
     DESC
   }
 
+  """
+  A Dashboard Configuration stored under a unique View Name, shared by everyone.
+  """
+  type SavedView {
+    "The View Name: trimmed, 1-60 characters, unique regardless of letter case."
+    name: String!
+    "World Bank indicator code, e.g. NY.GDP.PCAP.CD"
+    indicator: String!
+    "Chosen year, or null for Latest Year (follows the indicator's most recent data)."
+    year: Int
+    "ISO3 country codes in the order they were saved (at most 8)."
+    countries: [String!]!
+    "Ranking order."
+    order: SortOrder!
+    "Highlighted World Bank region, or null for none."
+    region: String
+    "When the view was saved (ISO 8601)."
+    createdAt: String!
+  }
+
+  "A Dashboard Configuration to save under a View Name."
+  input SaveViewInput {
+    "The View Name. Trimmed; must be 1-60 characters and not already used (ignoring letter case)."
+    name: String!
+    "World Bank indicator code; must exist."
+    indicator: String!
+    "Chosen year. Omit or null for Latest Year."
+    year: Int
+    "ISO3 country codes, 1 to 8, all of which must exist."
+    countries: [String!]!
+    "Ranking order."
+    order: SortOrder!
+    "Highlighted World Bank region; must exist if given."
+    region: String
+  }
+
   type Query {
     "Simple health-check style query that does not touch the database."
     hello: String!
@@ -156,11 +193,20 @@ export const typeDefs = /* GraphQL */ `
     Countries with no value for any of the indicators are omitted.
     """
     countrySnapshot(indicatorCodes: [String!]!, year: Int!): [CountrySnapshot!]!
+
+    "Saved Views, newest first. Optionally limited to the most recent N (the limit)."
+    savedViews(limit: Int): [SavedView!]!
   }
 
   type Mutation {
     "Store a new greeting in the database and return it."
     addGreeting(message: String!): Greeting!
+
+    """
+    Save a Dashboard Configuration under a View Name.
+    Fails with extensions.code VALIDATION_ERROR (bad name or configuration) or DUPLICATE_NAME (name already used, ignoring letter case).
+    """
+    saveView(input: SaveViewInput!): SavedView!
   }
 `;
 
@@ -193,6 +239,8 @@ export const resolvers = {
     hello: () => "Hello, World!",
 
     greetings: async () => prisma.greeting.findMany({ orderBy: { createdAt: "desc" } }),
+
+    savedViews: (_p: unknown, args: { limit?: number | null }) => listSavedViews(args.limit),
 
     dataSummary: async () => {
       const [countries, indicators, observations, regionRows, incomeRows, latest] = await Promise.all([
@@ -334,6 +382,13 @@ export const resolvers = {
       }
       return prisma.greeting.create({ data: { message } });
     },
+
+    saveView: (_parent: unknown, args: { input: SaveViewInput }) => saveView(args.input),
+  },
+
+  SavedView: {
+    countries: (parent: { countries: string }) => parent.countries.split(","),
+    createdAt: (parent: { createdAt: Date }) => parent.createdAt.toISOString(),
   },
 
   Greeting: {
