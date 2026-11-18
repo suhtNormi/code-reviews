@@ -4,6 +4,7 @@ import {
   LIFE_EXPECTANCY,
   fetchDashboardData,
   fetchDashboardMeta,
+  fetchSavedViews,
   parseParams,
   toScatterPoints,
   type RawSearchParams,
@@ -18,6 +19,7 @@ import { RegionBarChart } from "@/components/charts/RegionBarChart";
 import { GdpLifeScatter } from "@/components/charts/GdpLifeScatter";
 import { RankingTable } from "@/components/dashboard/RankingTable";
 import { Controls } from "@/components/dashboard/Controls";
+import { SavedViews } from "@/components/dashboard/SavedViews";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +54,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // different years, so it uses the latest year in which both are available.
   const latestFor = (code: string) => meta.indicators.find((i) => i.code === code)?.latestYear ?? year;
   const scatterYear = Math.min(year, latestFor(GDP_PER_CAPITA), latestFor(LIFE_EXPECTANCY));
+
+  const savedViews = await fetchSavedViews().catch(() => null);
 
   const data = await fetchDashboardData({
     indicator: indicator.code,
@@ -108,6 +112,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             region: params.region,
           }}
           yearOptions={yearOptions}
+        />
+      </Suspense>
+
+      <Suspense>
+        <SavedViews
+          views={savedViews}
+          countryNames={Object.fromEntries(meta.countries.map((c) => [c.code, c.name]))}
         />
       </Suspense>
 

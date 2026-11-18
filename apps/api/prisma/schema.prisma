@@ -64,3 +64,22 @@ model Observation {
   @@unique([countryCode, indicatorCode, year])
   @@index([indicatorCode, year])
 }
+
+/// A Dashboard Configuration stored under a unique View Name, shared by everyone.
+model SavedView {
+  id        Int      @id @default(autoincrement())
+  /// The View Name as the user typed it (trimmed), 1-60 characters
+  name      String
+  /// Lower-cased name; unique so names are unique regardless of letter case
+  nameKey   String   @unique
+  indicator String
+  /// null = Latest Year (follows the indicator's most recent data)
+  year      Int?
+  /// Comma-separated ISO3 country codes; the order is preserved
+  countries String
+  /// "ASC" or "DESC"
+  order     String
+  /// null = no highlighted region
+  region    String?
+  createdAt DateTime @default(now())
+}

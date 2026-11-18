@@ -1,8 +1,16 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
-import { MAX_COUNTRIES, type CountryMeta, type IndicatorMeta, type SortOrder } from "@/lib/dashboard";
+import {
+  MAX_COUNTRIES,
+  parseParams,
+  type CountryMeta,
+  type DashboardParams,
+  type IndicatorMeta,
+  type SortOrder,
+} from "@/lib/dashboard";
+import { buildDashboardUrl } from "@/lib/dashboard-config";
 import { shortIndicatorName } from "@/lib/format";
 
 type Props = {
@@ -28,19 +36,16 @@ const selectClass =
  */
 export function Controls({ indicators, countries, regions, selected, yearOptions }: Props) {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const update = useCallback(
-    (changes: Record<string, string | null>) => {
-      const next = new URLSearchParams(searchParams.toString());
-      for (const [k, v] of Object.entries(changes)) {
-        if (v === null || v === "") next.delete(k);
-        else next.set(k, v);
-      }
-      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+    (changes: Partial<DashboardParams>) => {
+      // Start from the configuration in the URL (year may be null = Latest Year),
+      // not from `selected`, whose year is already resolved.
+      const current = parseParams(Object.fromEntries(searchParams));
+      router.replace(buildDashboardUrl({ ...current, ...changes }), { scroll: false });
     },
-    [router, pathname, searchParams],
+    [router, searchParams],
   );
 
   const countryName = (code: string) => countries.find((c) => c.code === code)?.name ?? code;
@@ -67,7 +72,7 @@ export function Controls({ indicators, countries, regions, selected, yearOptions
 
         <label className="flex flex-col gap-1 text-xs text-zinc-500">
           Year
-          <select className={selectClass} value={selected.year} onChange={(e) => update({ year: e.target.value })}>
+          <select className={selectClass} value={selected.year} onChange={(e) => update({ year: Number(e.target.value) })}>
             {yearOptions.map((y) => (
               <option key={y} value={y}>
                 {y}
@@ -78,7 +83,7 @@ export function Controls({ indicators, countries, regions, selected, yearOptions
 
         <label className="flex flex-col gap-1 text-xs text-zinc-500">
           Ranking
-          <select className={selectClass} value={selected.order} onChange={(e) => update({ order: e.target.value })}>
+          <select className={selectClass} value={selected.order} onChange={(e) => update({ order: e.target.value as SortOrder })}>
             <option value="DESC">Highest first</option>
             <option value="ASC">Lowest first</option>
           </select>
@@ -113,7 +118,7 @@ export function Controls({ indicators, countries, regions, selected, yearOptions
               type="button"
               aria-label={`Remove ${countryName(code)}`}
               className="text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
-              onClick={() => update({ countries: selected.countries.filter((c) => c !== code).join(",") })}
+              onClick={() => update({ countries: selected.countries.filter((c) => c !== code) })}
             >
               ×
             </button>
@@ -124,7 +129,7 @@ export function Controls({ indicators, countries, regions, selected, yearOptions
             className={`${selectClass} py-0.5 text-xs`}
             value=""
             aria-label="Add country"
-            onChange={(e) => e.target.value && update({ countries: [...selected.countries, e.target.value].join(",") })}
+            onChange={(e) => e.target.value && update({ countries: [...selected.countries, e.target.value] })}
           >
             <option value="">+ Add country…</option>
             {addable.map((c) => (
